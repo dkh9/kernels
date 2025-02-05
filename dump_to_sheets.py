@@ -4,8 +4,8 @@ import sys
 import subprocess
 import re
 from datetime import datetime
+from syms_helpers import process_files
 
-oem_list = ["Xiaomi", "Redmi"]
 root_dir = os.getenv("KERNELS_ROOT_DIR")
 if not root_dir:
     raise EnvironmentError("Environment variable 'KERNELS_ROOT_DIR' is not set.")
@@ -120,11 +120,14 @@ def fill_info(fw_image, worksheet):
 
     orig_command = f"nm -n orig-boot.elf > orig-boot-syms.txt; sed -i 's/[^ ]* //' orig-boot-syms.txt"
     corresp_command = f"nm -n {corresp_boot} > corresp-boot-syms.txt; sed -i 's/[^ ]* //' corresp-boot-syms.txt"
-    subprocess.run(orig_command, shell=True, capture_output=True, text=True).stdout
-    subprocess.run(corresp_command, shell=True, capture_output=True, text=True).stdout
-    syms_command = f"{root_dir}/strip_syms_dev.sh orig-boot-syms.txt corresp-boot-syms.txt"
-    result = subprocess.run(syms_command, shell=True, capture_output=True, text=True).stdout
+    subprocess.run(orig_command, shell=True, capture_output=True, text=True)
+    subprocess.run(corresp_command, shell=True, capture_output=True, text=True)
+    result = process_files("orig-boot-syms.txt", "corresp-boot-syms.txt")
 
+    if result == "":
+        print("Empty result digest!")
+        return
+    
     fin_cycle_data = cycle_data(result)
     for cycle in fin_cycle_data:
         val = f"{cycle[1]} / {cycle[2]} / {cycle[3]}"
@@ -149,9 +152,17 @@ def fill_info(fw_image, worksheet):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        raise ValueError("Usage: python3 dump_to_sheets.py <table name>")
+        raise ValueError("Usage: python3 dump_to_sheets.py <table name> <vendor folder 1> <vendor folder 2>...")
     table_name = sys.argv[1]
+    oem_list = sys.argv[2:]
 
+    if len(oem_list) == 0:
+        print("No vendor folder specified!")
+        sys.exit()
+    
+    print("OEM list: ", oem_list)
+
+    #os.chdir()?
     gc = gspread.service_account()
     sh = gc.open(table_name)
 
