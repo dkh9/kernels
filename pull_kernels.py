@@ -11,6 +11,7 @@ gl = gitlab.Gitlab(url='https://dumps.tadiphone.dev/')
 oem_list = ["samsung"]
 oem_groups = []
 visited_projs = []
+root_dir = os.getenv("KERNELS_ROOT_DIR")
 
 def parse_linux_version(s):
     match = re.search(r"Linux version (\d+\.\d+\.\d+)(\+?)", s)
@@ -55,8 +56,7 @@ for group in oem_groups:
                 print("Error: could not convert to elf!")
                 os.chdir('..')
                 continue
-            #baseline = "5.10.0"
-            baseline = "5.15.0"
+            baseline = "5.10.0"
             command = 'strings orig-boot.elf | grep -i "linux version"'
             result = subprocess.run(command, shell=True, capture_output=True, text=True)
             version_str = result.stdout
@@ -83,11 +83,23 @@ for group in oem_groups:
                 continue
             else:
                 print('Version new enough!')
-                print("LS:")
-                os.system('ls')
-                print("PWD:")
-                os.system('pwd')
-                scraper_command = 'python3 /home/dasha/k-pop/selenium_scrape.py orig-boot.elf'
+                scraper_command = ["python3", root_dir + "/gki_scrape.py", "orig-boot.elf"]
+                result = subprocess.run("ls; pwd", shell=True, capture_output=True, text=True)
+                print("LS & PWD:", result.stdout)
+
+                process = subprocess.Popen(
+                scraper_command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,  
+                text=True,  
+                bufsize=1  
+                )
+
+                for line in iter(process.stdout.readline, ''):
+                    print(line, end='')
+                process.stdout.close()
+                process.wait() 
+
                 os.system('cd ../')
         except gitlab.exceptions.GitlabGetError as e:
             print(f"Error retrieving 'boot.img' from {project.name}: {e}")
