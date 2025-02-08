@@ -21,6 +21,7 @@ from selenium.webdriver.firefox.service import Service
 root_dir = os.getenv("KERNELS_ROOT_DIR")
 directory = root_dir + '/mullvad/'
 conf_files = [f for f in os.listdir(directory) if f.endswith('.conf')]
+related = ['xiaomi', 'redmi', 'poco']
 
 curr_vpn_setting = None
 
@@ -98,7 +99,6 @@ def fetch_result_list(phone, url):
         driver.quit()
         return (None, headers, cookies_dict)
 
-
     li_list = list(li)
     print("Amount of li's: ", len(li_list))
     li_target_elem = None
@@ -172,8 +172,39 @@ def corresp_names(model_name, data):
     return entry_set
 
 
+def fetch_phone_page(link_to_parse):
+    """Fetches the phone page using requests."""
+    sleep_delay = 10 + random.randint(1, 15)
+    time.sleep(sleep_delay)
+    
+    return requests.get(link_to_parse)
 
-#CODE START
+def update_worksheet(worksheet, cell, value):
+    try:
+        worksheet.update_acell(cell, value)
+    except Exception:
+        try:
+            gc = gspread.service_account()  # re-authenticate
+            sh = gc.open(table_name)
+            worksheet = sh.worksheet(worksheet.title)
+            worksheet.update_acell(cell, value)
+        except Exception as e:
+            print(f"Error reconnecting to Google Sheets: {e}")
+            sys.exit()
+
+def extract_phone_specs(phone_soup):
+    title_elem = phone_soup.find("h1", {"class": "specs-phone-name-title"})
+    date_elem = phone_soup.find("span", {"data-spec": "released-hl"})
+    chipset_elem = phone_soup.find("td", {"data-spec": "chipset"})
+
+    title_text = title_elem.text if title_elem else "None"
+    release_text = date_elem.text if date_elem else "None"
+    chipset_text = chipset_elem.text if chipset_elem else "None"
+
+    if release_text and release_text.startswith("Released"):
+        release_text = release_text[len("Released "):] 
+
+    return title_text, release_text, chipset_text
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
@@ -190,14 +221,11 @@ if __name__ == "__main__":
         print("Could not retrieve the model json! Status code: ", response.status_code)
         sys.exit()
 
-    related = ['xiaomi', 'redmi', 'poco']
-
-    #TODO:KEEEEEEEEP!
-    #curr_vpn_setting = get_next_vpn_setting()
-    #print("Initial vpn config: ", curr_vpn_setting)
-    #up_command = 'wg-quick up ' + directory + curr_vpn_setting
-    #subprocess.run(up_command, shell=True) 
-    #time.sleep(3)
+    curr_vpn_setting = get_next_vpn_setting()
+    print("Initial vpn config: ", curr_vpn_setting)
+    up_command = 'wg-quick up ' + directory + curr_vpn_setting
+    subprocess.run(up_command, shell=True) 
+    time.sleep(3)
 
     gc = gspread.service_account()
     sh = gc.open(table_name)
@@ -208,8 +236,7 @@ if __name__ == "__main__":
         worksheet = sh.worksheet(sheet.title)
         print(sheet.title)
         row_counter = 1
-        model_names = worksheet.col_values(1)
-        model_names = model_names[row_counter-1:]
+        model_names = worksheet.col_values(1)[row_counter-1:]
         print("MODEL NAMES: ", model_names)
         for model_name in model_names:
             key = model_name if model_name in data else model_name.upper() if model_name.upper() in data else None
@@ -226,38 +253,20 @@ if __name__ == "__main__":
                     if link_to_parse is not None:
                         link_to_parse = 'https://www.gsmarena.com/' + link_to_parse
                         print("Parsing: ", link_to_parse)
-                        sleep_delay = 10 + random.randint(1, 15)
-                        time.sleep(sleep_delay)
-                        #phone_page = requests.get(link_to_parse, headers=headers, cookies=cookies_dict)
-                        phone_page = requests.get(link_to_parse)
+                        phone_page = fetch_phone_page(link_to_parse)
                         if phone_page.status_code == 200:
                             phone_soup = BeautifulSoup(phone_page.content, 'lxml')
-                            title_elem = phone_soup.find("h1", {"class": "specs-phone-name-title"})
-                            date_elem = phone_soup.find("span", {"data-spec": "released-hl"})
-                            chipset_elem = phone_soup.find("td", {"data-spec": "chipset"})
-                            print(title_elem.text)
-                            title_cell = 'M' + str(row_counter)
-                            print('Dying here (hopefully not)')
-                            try:
-                                worksheet.update_acell(title_cell, title_elem.text)
-                            except Exception as e:
-                                    try:
-                                        gc = gspread.service_account()  # Re-authenticate with the Google Sheets API
-                                        sh = gc.open(table_name)
-                                        worksheet = sh.worksheet(sheet.title)
-                                        worksheet.update_acell(title_cell, title_elem.text)
-                                    except Exception as e:
-                                        print(f"Error reconnecting to Google Sheets: {e}")
-                                        sys.exit()
-                            release = date_elem.text
-                            if release.startswith("Released"):
-                                release = release[len("Released "):] 
-                            print(release)
-                            release_cell = 'N' + str(row_counter)
-                            worksheet.update_acell(release_cell, release)
-                            print(chipset_elem.text)
-                            chipset_cell = 'O' + str(row_counter)
-                            worksheet.update_acell(chipset_cell, chipset_elem.text)
+                            title_text, release_text, chipset_text = extract_phone_specs(phone_soup)
+                            title_cell = f'M{row_counter}'
+                            release_cell = f'N{row_counter}'
+                            chipset_cell = f'O{row_counter}'
+
+                            print("Title: ", title_text, " release: ", release_text, " chipset: ", chipset_text)
+
+                            update_worksheet(worksheet, title_cell, title_text)
+                            update_worksheet(worksheet, release_cell, release_text)
+                            update_worksheet(worksheet, chipset_cell, chipset_text)
+                            print("Updated worksheet")
                         else:
                             print("ERROR: could not open ", link_to_parse)
             else:

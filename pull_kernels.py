@@ -87,13 +87,7 @@ for group in oem_groups:
                 result = subprocess.run("ls; pwd", shell=True, capture_output=True, text=True)
                 print("LS & PWD:", result.stdout)
 
-                process = subprocess.Popen(
-                scraper_command,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,  
-                text=True,  
-                bufsize=1  
-                )
+                process = subprocess.Popen(scraper_command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
 
                 for line in iter(process.stdout.readline, ''):
                     print(line, end='')
