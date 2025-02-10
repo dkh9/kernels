@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON Diff Viewer</title>
+    <style>
+        body {
+            font-family: monospace, monospace;
+            line-height: 1.6;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 0;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        .file-inputs {
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .container {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 1200px;
+        }
+
+        .tree-container {
+            width: 48%;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 10px;
+            overflow-y: auto;
+            max-height: 80vh;
+        }
+
+        ul {
+            list-style-type: none;
+            padding-left: 20px;
+        }
+
+        .folder {
+            cursor: pointer;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+        }
+
+        .arrow {
+            font-size: 12px;
+            margin-right: 5px;
+            transform: rotate(0deg);
+            transition: transform 0.1s ease;
+        }
+
+        .arrow.expanded {
+            transform: rotate(90deg);
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .file {
+            margin-left: 0px;
+        }
+
+        .added {
+            color: green;
+            font-weight: bold;
+        }
+
+        .deleted {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+    <script>
+        function isLeafNode(obj) {
+            return typeof obj === "object" &&
+                Object.keys(obj).length === 2 &&
+                "added" in obj &&
+                "deleted" in obj;
+        }
+
+        function createTree(data, parent) {
+            for (const key in data) {
+                if (typeof data[key] === "object" && !isLeafNode(data[key])) {
+                    // Calculate added and deleted totals for folder nodes
+                    const added = data[key].added || 0;
+                    const deleted = data[key].deleted || 0;
+
+                    // Create a folder entry
+                    const folderContainer = document.createElement("div");
+                    folderContainer.classList.add("folder");
+
+                    const arrow = document.createElement("span");
+                    arrow.textContent = ">";
+                    arrow.classList.add("arrow");
+
+                    const folderName = document.createElement("span");
+                    folderName.innerHTML = `${key} (<span class="added">${added}</span>, <span class="deleted">${deleted}</span>)`;
+
+                    folderContainer.appendChild(arrow);
+                    folderContainer.appendChild(folderName);
+
+                    folderContainer.addEventListener("click", () => {
+                        const childList = folderContainer.nextElementSibling;
+                        childList.classList.toggle("hidden");
+                        arrow.classList.toggle("expanded");
+                    });
+
+                    parent.appendChild(folderContainer);
+
+                    // Create a hidden child list
+                    const childList = document.createElement("ul");
+                    childList.classList.add("hidden");
+                    createTree(data[key], childList);
+                    parent.appendChild(childList);
+                } else if (typeof data[key] === "object" && isLeafNode(data[key])) {
+                    // Create a file entry
+                    const file = document.createElement("li");
+                    file.classList.add("file");
+
+                    const added = `<span class="added">${data[key].added}</span>`;
+                    const deleted = `<span class="deleted">${data[key].deleted}</span>`;
+                    file.innerHTML = `${key} (Added: ${added}, Deleted: ${deleted})`;
+
+                    parent.appendChild(file);
+                }
+            }
+        }
+
+        function loadJSON(event, containerId) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    try {
+                        const jsonData = JSON.parse(e.target.result);
+                        const treeContainer = document.getElementById(containerId);
+                        treeContainer.innerHTML = "";
+                        createTree(jsonData, treeContainer);
+                    } catch (err) {
+                        alert("Invalid JSON file. Please check the content and try again.");
+                    }
+                };
+                reader.readAsText(file);
+            }
+        }
+    </script>
+</head>
+
+<body>
+    <h1>JSON Diff Viewer</h1>
+    <div class="file-inputs">
+        <div>
+            <label for="inputfile1">JSON File 1:</label>
+            <input type="file" id="inputfile1" accept=".json">
+        </div>
+        <div>
+            <label for="inputfile2">JSON File 2:</label>
+            <input type="file" id="inputfile2" accept=".json">
+        </div>
+    </div>
+    <div class="container">
+        <div id="tree-container1" class="tree-container"></div>
+        <div id="tree-container2" class="tree-container"></div>
+    </div>
+    <script>
+        document.getElementById('inputfile1').addEventListener('change', (event) => loadJSON(event, 'tree-container1'));
+        document.getElementById('inputfile2').addEventListener('change', (event) => loadJSON(event, 'tree-container2'));
+    </script>
+</body>
+
+</html>

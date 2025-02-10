@@ -2,11 +2,13 @@ import os
 import sys
 import subprocess
 import shutil
+from json_dumper import dump_json
 
 TEST_COMMAND="git checkout -b "
 EXISTING_BRANCH_COMMAND = "git checkout -f "
-COMPARE_SOURCES_DIR="/home/dasha/k-pop/codebase-comparison" #set your path
+COMPARE_SOURCES_DIR="/path/to/codebase-comparison/" #set your path
 COPY_COMMAND = "cp -r "
+
 
 def clear_directory(dir_path):
     if not os.path.exists(dir_path) or not os.path.isdir(dir_path):
@@ -22,10 +24,6 @@ def clear_directory(dir_path):
             shutil.rmtree(item_path)  
 
 def checkout_branch(branch_name, source_path):
-    """
-    Checks out a git branch. If it exists, switches to it.
-    Otherwise, creates a new branch and copies source files into it.
-    """
     os.chdir(COMPARE_SOURCES_DIR)
     result = subprocess.run(TEST_COMMAND + branch_name, shell=True, capture_output=True, text=True)
 
@@ -67,7 +65,7 @@ def main():
     checkout_branch(f"gki_{gki_branch_name}", gki_path)
     checkout_branch(f"vendor_{vendor_branch_name}", vendor_path)
 
-    DIFF_CMD = "git diff {} {} --numstat > ../{}/{}.txt".format("gki_"+gki_branch_name, "vendor_"+vendor_branch_name, output_folder_path, vendor_branch_name)
+    DIFF_CMD = "git diff {} {} --numstat > {}/{}.txt".format("gki_"+gki_branch_name, "vendor_"+vendor_branch_name, output_folder_path, vendor_branch_name)
     result = subprocess.run(DIFF_CMD, shell=True, capture_output=True, text=True)
  
     ONLY_CODE_DIFF = (
@@ -92,10 +90,14 @@ def main():
             text=True
         )
 
-    JSON_CMD = "python3 ./json_dumper.py {}/{}.txt > {}/{}_aggregated.json".format(output_folder_path, vendor_branch_name, output_folder_path, vendor_branch_name)
-    result = subprocess.run(JSON_CMD, shell=True, capture_output=True, text=True)
-    JSON_CODE_CMD = "python3 ./json_dumper.py {}/{}_code.txt > {}/{}_aggregated_code.json".format(output_folder_path, vendor_branch_name, output_folder_path, vendor_branch_name)
-    result = subprocess.run(JSON_CODE_CMD, shell=True, capture_output=True, text=True) 
+    aggregated = dump_json(f"{output_folder_path}/{vendor_branch_name}.txt")
+    aggregated_code = dump_json(f"{output_folder_path}/{vendor_branch_name}_code.txt")
 
+    with open(f"{output_folder_path}/{vendor_branch_name}_aggregated.json", "w+") as f:
+        f.write(aggregated)
+    
+    with open(f"{output_folder_path}/{vendor_branch_name}_aggregated_code.json", "w+") as f:
+        f.write(aggregated_code)
+   
 if __name__ == "__main__":
     main()

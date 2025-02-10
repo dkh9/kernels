@@ -152,7 +152,7 @@ def fill_info(fw_image, worksheet):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        raise ValueError("Usage: python3 dump_to_sheets.py <table name> <vendor folder 1> <vendor folder 2>...")
+        raise ValueError("Usage: python3 dump_to_sheets.py <spreadsheet name> <vendor folder 1> <vendor folder 2>...")
     table_name = sys.argv[1]
     oem_list = sys.argv[2:]
 

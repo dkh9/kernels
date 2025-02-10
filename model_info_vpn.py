@@ -208,7 +208,7 @@ def extract_phone_specs(phone_soup):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        raise ValueError("Usage: python3 dump_to_sheets.py <table name> <vendor folder 1> <vendor folder 2>...")
+        raise ValueError("Usage: python3 dump_to_sheets.py <spreadsheet name> <vendor folder 1> <vendor folder 2>...")
     table_name = sys.argv[1]
 
     url = 'https://raw.githubusercontent.com/androidtrackers/certified-android-devices/refs/heads/master/by_device.json'
